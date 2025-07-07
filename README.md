@@ -72,6 +72,84 @@ The solution consists of:
    streamlit run app.py
    ```
 
+### Windows Compatibility
+
+When running on Windows systems, the application automatically uses a Windows-compatible configuration for the MCP servers. The code detects the platform and adjusts accordingly.
+
+#### Setup for Windows
+
+1. Ensure you have Python 3.11+ installed
+2. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+3. Make sure the `uv` package is installed:
+   ```
+   pip install uv
+   ```
+4. Configure your AWS credentials properly
+
+#### Running on Windows
+
+You can run the application in two ways:
+
+1. **Recommended: Using Streamlit**
+   ```
+   streamlit run app.py
+   ```
+
+2. **Direct execution** (if you want to run cloud_engineer_agent.py directly)
+   ```
+   python cloud_engineer_agent.py
+   ```
+
+#### Windows Configuration
+
+The application uses the following configuration for Windows:
+```json
+{
+  "mcpServers": {
+    "aws-docs": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "awslabs.aws-documentation-mcp-server@latest",
+        "awslabs.aws-documentation-mcp-server.exe"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    }
+  }
+}
+```
+
+#### Troubleshooting Windows Issues
+
+If you encounter errors when running the application on Windows:
+
+1. **Verify Dependencies**:
+   - Ensure you have Python 3.11+ installed
+   - Confirm that you've installed all dependencies: `pip install -r requirements.txt`
+   - Make sure the `uv` package is installed: `pip install uv`
+
+2. **Check Permissions**:
+   - Try running the command prompt or PowerShell as Administrator
+   - Ensure your user has permissions to execute Python scripts
+
+3. **Network Issues**:
+   - Check your firewall settings to ensure Python has network access
+   - Verify your internet connection is working properly
+
+4. **Common Error Messages**:
+   - "Connection closed": This typically indicates a problem with the MCP server initialization
+   - "Command not found": Ensure the `uv` package is installed correctly
+
+5. **Alternative Approach**:
+   - If direct execution fails, try using Streamlit: `streamlit run app.py`
+
 ## Deployment
 
 ### Prerequisites

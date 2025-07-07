@@ -7,9 +7,7 @@ from strands_tools import use_aws
 import os
 import sys
 import atexit
-import platform
-import subprocess
-from typing import Dict, List, Optional
+from typing import Dict
 
 # Define common cloud engineering tasks
 PREDEFINED_TASKS = {
@@ -26,78 +24,76 @@ PREDEFINED_TASKS = {
     "generate_diagram": "Generate AWS architecture diagrams based on user description"
 }
 
-# Check if uvx is installed
-def is_uvx_installed():
-    try:
-        if platform.system() == "Windows":
-            # On Windows, use where command
-            subprocess.run(["where", "uvx"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        else:
-            # On Unix-like systems, use which command
-            subprocess.run(["which", "uvx"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
-    except (subprocess.SubprocessError, FileNotFoundError):
-        return False
+# Set up MCP clients with platform-specific configurations
+is_windows = sys.platform.startswith('win')
+print(f"Detected platform: {'Windows' if is_windows else 'Non-Windows (Linux/macOS)'}")
 
-# Initialize MCP clients with error handling
-aws_docs_mcp_client = None
-aws_diagram_mcp_client = None
-docs_tools = []
-diagram_tools = []
-
-def initialize_mcp_clients():
-    global aws_docs_mcp_client, aws_diagram_mcp_client, docs_tools, diagram_tools
-    
-    if not is_uvx_installed():
-        print("WARNING: 'uvx' command not found. MCP clients will not be available.")
-        print("To use MCP clients, please install Universal Command Line Interface (uvx).")
-        print("Visit: https://strandsagents.com/0.1.x/getting-started/installation/")
-        return False
-    
-    try:
+try:
+    if is_windows:
+        # Windows-specific configuration
+        print("Using Windows-specific MCP configuration...")
+        # Set up AWS Documentation MCP client for Windows
+        aws_docs_mcp_client = MCPClient(lambda: stdio_client(
+            StdioServerParameters(
+                command="uv",
+                args=["tool", "run", "--from", "awslabs.aws-documentation-mcp-server@latest", "awslabs.aws-documentation-mcp-server.exe"],
+                env={"FASTMCP_LOG_LEVEL": "ERROR"}
+            )
+        ))
+        
+        # Set up AWS Diagram MCP client for Windows
+        aws_diagram_mcp_client = MCPClient(lambda: stdio_client(
+            StdioServerParameters(
+                command="uv",
+                args=["tool", "run", "--from", "awslabs.aws-diagram-mcp-server@latest", "awslabs.aws-diagram-mcp-server.exe"],
+                env={"FASTMCP_LOG_LEVEL": "ERROR"}
+            )
+        ))
+    else:
+        # Non-Windows configuration (Linux/macOS)
+        print("Using standard MCP configuration for Linux/macOS...")
         # Set up AWS Documentation MCP client
         aws_docs_mcp_client = MCPClient(lambda: stdio_client(
             StdioServerParameters(command="uvx", args=["awslabs.aws-documentation-mcp-server@latest"])
         ))
-        aws_docs_mcp_client.start()
         
         # Set up AWS Diagram MCP client
         aws_diagram_mcp_client = MCPClient(lambda: stdio_client(
             StdioServerParameters(command="uvx", args=["awslabs.aws-diagram-mcp-server@latest"])
         ))
-        aws_diagram_mcp_client.start()
-        
-        # Get tools from MCP clients
-        docs_tools = aws_docs_mcp_client.list_tools_sync()
-        diagram_tools = aws_diagram_mcp_client.list_tools_sync()
-        
-        # Register cleanup handler for MCP clients
-        atexit.register(cleanup)
-        
-        return True
-    except Exception as e:
-        print(f"ERROR: Failed to initialize MCP clients: {e}")
-        print("The agent will continue with limited functionality (no AWS documentation or diagram tools).")
-        return False
 
-# Register cleanup handler for MCP clients
-def cleanup():
-    if aws_docs_mcp_client:
-        try:
-            aws_docs_mcp_client.stop()
-            print("AWS Documentation MCP client stopped")
-        except Exception as e:
-            print(f"Error stopping AWS Documentation MCP client: {e}")
+    # Start both MCP clients
+    print("Starting AWS Documentation MCP client...")
+    aws_docs_mcp_client.start()
+    print("AWS Documentation MCP client started successfully.")
     
-    if aws_diagram_mcp_client:
-        try:
-            aws_diagram_mcp_client.stop()
-            print("AWS Diagram MCP client stopped")
-        except Exception as e:
-            print(f"Error stopping AWS Diagram MCP client: {e}")
+    print("Starting AWS Diagram MCP client...")
+    aws_diagram_mcp_client.start()
+    print("AWS Diagram MCP client started successfully.")
+    
+except Exception as e:
+    error_message = str(e)
+    print(f"Error initializing MCP clients: {error_message}")
+    
+    if is_windows:
+        print("\nWindows-specific troubleshooting tips:")
+        print("1. Ensure you have installed the 'uv' package: pip install uv")
+        print("2. Check if you have proper permissions to execute the commands")
+        print("3. Verify your network connection and firewall settings")
+        print("4. Try running the application with administrator privileges")
+        print("5. If the issue persists, try running the Streamlit app instead: streamlit run app.py")
+    else:
+        print("\nTroubleshooting tips:")
+        print("1. Ensure you have installed all dependencies: pip install -r requirements.txt")
+        print("2. Check your network connection")
+        print("3. Try running the Streamlit app instead: streamlit run app.py")
+    
+    # Re-raise the exception to maintain the original behavior
+    raise
 
-# Initialize MCP clients
-mcp_initialized = initialize_mcp_clients()
+# Get tools from MCP clients
+docs_tools = aws_docs_mcp_client.list_tools_sync()
+diagram_tools = aws_diagram_mcp_client.list_tools_sync()
 
 # Create a BedrockModel with system inference profile
 bedrock_model = BedrockModel(
@@ -116,37 +112,41 @@ management, optimization, security, and best practices. You can:
 3. Identify cost optimization opportunities
 4. Troubleshoot AWS service issues
 5. Explain AWS concepts and best practices
-"""
-
-# Add MCP-specific capabilities if available
-if mcp_initialized:
-    system_prompt += """
 6. Generate infrastructure diagrams using the AWS diagram tools
 7. Search AWS documentation for specific information
 
 When asked to create diagrams, use the AWS diagram MCP tools to generate visual representations
 of architecture based on the user's description. Be creative and thorough in translating text
 descriptions into complete architecture diagrams.
-"""
 
-system_prompt += """
 Always provide clear, actionable advice with specific AWS CLI commands or console steps when applicable.
 Focus on security best practices and cost optimization in your recommendations.
 
 IMPORTANT: Never include <thinking> tags or expose your internal thought process in responses.
 """
 
-# Create the agent with available tools and Bedrock Nova Premier model
-tools = [use_aws]
-if mcp_initialized:
-    tools.extend(docs_tools + diagram_tools)
-
 # Create the agent with all tools and Bedrock Nova Premier model
 agent = Agent(
-    tools=tools,
+    tools=[use_aws] + docs_tools + diagram_tools,
     model=bedrock_model,
     system_prompt=system_prompt
 )
+
+# Register cleanup handler for MCP clients
+def cleanup():
+    try:
+        aws_docs_mcp_client.stop()
+        print("AWS Documentation MCP client stopped")
+    except Exception as e:
+        print(f"Error stopping AWS Documentation MCP client: {e}")
+    
+    try:
+        aws_diagram_mcp_client.stop()
+        print("AWS Diagram MCP client stopped")
+    except Exception as e:
+        print(f"Error stopping AWS Diagram MCP client: {e}")
+
+atexit.register(cleanup)
 
 # Function to execute a predefined task
 def execute_predefined_task(task_key: str) -> str:
@@ -179,35 +179,6 @@ def get_predefined_tasks() -> Dict[str, str]:
 
 
 if __name__ == "__main__":
-    # Print status information
-    print("\n=== AWS Cloud Engineer Agent ===\n")
-    
-    if not mcp_initialized:
-        print("\nWARNING: Running with limited functionality (no AWS documentation or diagram tools).")
-        print("To enable full functionality, please install the Universal Command Line Interface (uvx).")
-        print("Visit: https://strandsagents.com/0.1.x/getting-started/installation/")
-        print("\nYou can still use the agent for basic AWS operations.\n")
-    else:
-        print("All tools initialized successfully.\n")
-    
-    # Print available tasks
-    print("Available predefined tasks:")
-    for key, description in PREDEFINED_TASKS.items():
-        print(f"  - {key}: {description}")
-    
-    print("\nRunning example task: 'List all EC2 instances and their status'")
-    print("-" * 50)
-    
-    try:
-        # Example usage
-        result = execute_custom_task("List all EC2 instances and their status")
-        print(result)
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        print("\nTroubleshooting tips:")
-        print("1. Ensure you have valid AWS credentials configured")
-        print("2. Check your internet connection")
-        print("3. Verify that you have the required permissions in your AWS account")
-        print("4. For full functionality, install uvx: https://strandsagents.com/0.1.x/getting-started/installation/")
-        print("\nFor a better experience, try running the Streamlit app instead:")
-        print("streamlit run app.py")
+    # Example usage
+    result = execute_custom_task("List all EC2 instances and their status")
+    print(result)
