@@ -5,6 +5,7 @@ from mcp import StdioServerParameters, stdio_client
 from strands_tools import use_aws
 
 import os
+import sys
 import atexit
 from typing import Dict
 
@@ -23,17 +24,72 @@ PREDEFINED_TASKS = {
     "generate_diagram": "Generate AWS architecture diagrams based on user description"
 }
 
-# Set up AWS Documentation MCP client
-aws_docs_mcp_client = MCPClient(lambda: stdio_client(
-    StdioServerParameters(command="uvx", args=["awslabs.aws-documentation-mcp-server@latest"])
-))
-aws_docs_mcp_client.start()
+# Set up MCP clients with platform-specific configurations
+is_windows = sys.platform.startswith('win')
+print(f"Detected platform: {'Windows' if is_windows else 'Non-Windows (Linux/macOS)'}")
 
-# Set up AWS Diagram MCP client
-aws_diagram_mcp_client = MCPClient(lambda: stdio_client(
-    StdioServerParameters(command="uvx", args=["awslabs.aws-diagram-mcp-server@latest"])
-))
-aws_diagram_mcp_client.start()
+try:
+    if is_windows:
+        # Windows-specific configuration
+        print("Using Windows-specific MCP configuration...")
+        # Set up AWS Documentation MCP client for Windows
+        aws_docs_mcp_client = MCPClient(lambda: stdio_client(
+            StdioServerParameters(
+                command="uv",
+                args=["tool", "run", "--from", "awslabs.aws-documentation-mcp-server@latest", "awslabs.aws-documentation-mcp-server.exe"],
+                env={"FASTMCP_LOG_LEVEL": "ERROR"}
+            )
+        ))
+        
+        # Set up AWS Diagram MCP client for Windows
+        aws_diagram_mcp_client = MCPClient(lambda: stdio_client(
+            StdioServerParameters(
+                command="uv",
+                args=["tool", "run", "--from", "awslabs.aws-diagram-mcp-server@latest", "awslabs.aws-diagram-mcp-server.exe"],
+                env={"FASTMCP_LOG_LEVEL": "ERROR"}
+            )
+        ))
+    else:
+        # Non-Windows configuration (Linux/macOS)
+        print("Using standard MCP configuration for Linux/macOS...")
+        # Set up AWS Documentation MCP client
+        aws_docs_mcp_client = MCPClient(lambda: stdio_client(
+            StdioServerParameters(command="uvx", args=["awslabs.aws-documentation-mcp-server@latest"])
+        ))
+        
+        # Set up AWS Diagram MCP client
+        aws_diagram_mcp_client = MCPClient(lambda: stdio_client(
+            StdioServerParameters(command="uvx", args=["awslabs.aws-diagram-mcp-server@latest"])
+        ))
+
+    # Start both MCP clients
+    print("Starting AWS Documentation MCP client...")
+    aws_docs_mcp_client.start()
+    print("AWS Documentation MCP client started successfully.")
+    
+    print("Starting AWS Diagram MCP client...")
+    aws_diagram_mcp_client.start()
+    print("AWS Diagram MCP client started successfully.")
+    
+except Exception as e:
+    error_message = str(e)
+    print(f"Error initializing MCP clients: {error_message}")
+    
+    if is_windows:
+        print("\nWindows-specific troubleshooting tips:")
+        print("1. Ensure you have installed the 'uv' package: pip install uv")
+        print("2. Check if you have proper permissions to execute the commands")
+        print("3. Verify your network connection and firewall settings")
+        print("4. Try running the application with administrator privileges")
+        print("5. If the issue persists, try running the Streamlit app instead: streamlit run app.py")
+    else:
+        print("\nTroubleshooting tips:")
+        print("1. Ensure you have installed all dependencies: pip install -r requirements.txt")
+        print("2. Check your network connection")
+        print("3. Try running the Streamlit app instead: streamlit run app.py")
+    
+    # Re-raise the exception to maintain the original behavior
+    raise
 
 # Get tools from MCP clients
 docs_tools = aws_docs_mcp_client.list_tools_sync()

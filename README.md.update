@@ -1,0 +1,67 @@
+# AWS Cloud Engineer Agent - Update
+
+## Important Update for Windows Users
+
+The code has been updated to handle the issue with running `cloud_engineer_agent.py` directly on Windows. The following changes have been made:
+
+1. Added robust error handling for MCP client initialization
+2. Implemented a fallback mechanism when MCP tools are not available
+3. Added clear user guidance and troubleshooting information
+4. Updated the Streamlit app to work with or without MCP tools
+
+## Running the Application
+
+### Option 1: Using Streamlit (Recommended)
+
+The recommended way to run the application is still using Streamlit:
+
+```
+streamlit run app.py
+```
+
+### Option 2: Running cloud_engineer_agent.py Directly
+
+You can now run the cloud_engineer_agent.py script directly:
+
+```
+python cloud_engineer_agent.py
+```
+
+The script will:
+- Check if the required "uvx" command is available
+- Initialize available tools
+- Provide clear status information
+- Run with limited functionality if MCP tools are not available
+
+## Installing Universal Command Line Interface (uvx)
+
+For full functionality, including AWS Documentation and AWS Diagram tools, you need to install the Universal Command Line Interface (uvx):
+
+1. Visit: https://strandsagents.com/0.1.x/getting-started/installation/
+2. Follow the installation instructions for your platform
+3. Restart your application after installation
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. Ensure you have valid AWS credentials configured
+2. Check your internet connection
+3. Verify that you have the required permissions in your AWS account
+4. For Windows users, make sure Python is properly installed and in your PATH
+5. Try running the application in a virtual environment
+
+## Limitations
+
+When running without MCP tools (if uvx is not installed):
+- AWS Documentation search will not be available
+- AWS Diagram generation will not be available
+- Other AWS operations will continue to work normally
+
+## Questions or Issues
+
+If you continue to experience issues, please provide:
+- Your operating system and version
+- Python version
+- Error messages
+- Steps to reproduce the issue

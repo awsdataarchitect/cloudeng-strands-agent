@@ -1,5 +1,5 @@
 import streamlit as st
-from cloud_engineer_agent import execute_predefined_task, execute_custom_task, get_predefined_tasks, PREDEFINED_TASKS
+from cloud_engineer_agent import execute_predefined_task, execute_custom_task, get_predefined_tasks, PREDEFINED_TASKS, mcp_initialized
 import time
 import re
 import json
@@ -152,8 +152,15 @@ def main():
         # Display AWS CLI Tool
         st.markdown("**AWS CLI Tool**")
         st.markdown("- `use_aws`: Execute AWS CLI commands")
-        st.markdown("**AWS Documentation MCP Tool**")
-        st.markdown("**AWS Diagram MCP Tool**")
+        
+        # Display MCP tools status
+        if mcp_initialized:
+            st.markdown("**AWS Documentation MCP Tool**")
+            st.markdown("**AWS Diagram MCP Tool**")
+        else:
+            st.warning("MCP tools not available. Some features will be limited.")
+            st.markdown("To enable full functionality, please install the Universal Command Line Interface (uvx).")
+            st.markdown("Visit: https://strandsagents.com/0.1.x/getting-started/installation/")
 
         # Clear chat button
         st.markdown("---")
@@ -163,6 +170,12 @@ def main():
     
     # Main content area with chat interface
     st.title("AWS Cloud Engineer Assistant")
+    
+    # Show warning if MCP tools are not available
+    if not mcp_initialized:
+        st.warning("⚠️ Running with limited functionality. AWS Documentation and Diagram tools are not available.")
+        st.markdown("You can still use the agent for basic AWS operations and queries.")
+    
     st.markdown("Ask questions about AWS resources, security, cost optimization, or select a predefined task from the sidebar.")
     
     # Display chat messages
