@@ -113,8 +113,8 @@ except Exception as e:
     aws_diagram_mcp_client = None
 
 # Get tools from MCP clients (if initialized)
-docs_tools = aws_docs_mcp_client.list_tools_sync() if mcp_initialized else []
-diagram_tools = aws_diagram_mcp_client.list_tools_sync() if mcp_initialized else []
+docs_tools = aws_docs_mcp_client.list_tools_sync() if mcp_initialized and aws_docs_mcp_client else []
+diagram_tools = aws_diagram_mcp_client.list_tools_sync() if mcp_initialized and aws_diagram_mcp_client else []
 
 # Create a BedrockModel with system inference profile
 bedrock_model = BedrockModel(
