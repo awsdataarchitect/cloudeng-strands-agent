@@ -155,14 +155,14 @@ agent = Agent(
 
 # Register cleanup handler for MCP clients
 def cleanup():
-    if mcp_initialized and aws_docs_mcp_client:
+    if mcp_initialized:
         try:
             aws_docs_mcp_client.stop()
             print("AWS Documentation MCP client stopped")
         except Exception as e:
             print(f"Error stopping AWS Documentation MCP client: {e}")
     
-    if mcp_initialized and aws_diagram_mcp_client:
+    if mcp_initialized:
         try:
             aws_diagram_mcp_client.stop()
             print("AWS Diagram MCP client stopped")
