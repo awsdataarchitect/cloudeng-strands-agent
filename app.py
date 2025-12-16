@@ -30,7 +30,7 @@ def clean_response(response):
     if not isinstance(response, str):
         try:
             response = str(response)
-        except:
+        except Exception as e:
             return "Error: Could not convert response to string"
     
     # Remove <thinking>...</thinking> blocks
@@ -46,7 +46,7 @@ def clean_response(response):
                     if isinstance(item, dict) and 'text' in item:
                         # Return the text content directly (preserves markdown)
                         return item['text']
-        except:
+        except Exception as e:
             # If parsing fails, try regex as fallback
             match = re.search(r"'text': '(.+?)(?:'}]|})", cleaned, re.DOTALL)
             if match:
