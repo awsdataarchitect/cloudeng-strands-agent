@@ -42,56 +42,106 @@ print(f"Detected platform: {'Windows' if is_windows else 'Non-Windows (Linux/mac
 
 # Track whether MCP clients were successfully initialized
 mcp_initialized = False
+aws_docs_mcp_client = None
+aws_diagram_mcp_client = None
+
+def initialize_mcp_client(client_name, client_factory):
+    """
+    Safely initialize a single MCP client with proper error handling.
+    Returns (client, success) tuple.
+    """
+    try:
+        print(f"Initializing {client_name}...")
+        client = client_factory()
+        print(f"Starting {client_name}...")
+        client.start()
+        print(f"{client_name} started successfully.")
+        return client, True
+    except BaseException as e:
+        # Catch BaseException to handle both Exception and ExceptionGroup (from TaskGroup)
+        error_type = type(e).__name__
+        error_message = str(e)
+        
+        # Handle ExceptionGroup specially (Python 3.11+ async TaskGroup errors)
+        if error_type == "ExceptionGroup":
+            print(f"Error initializing {client_name}: TaskGroup exception occurred")
+            print(f"  Exception type: {error_type}")
+            # Extract sub-exceptions from ExceptionGroup
+            if hasattr(e, 'exceptions'):
+                print(f"  Sub-exceptions ({len(e.exceptions)}):")
+                for i, sub_exc in enumerate(e.exceptions, 1):
+                    print(f"    {i}. {type(sub_exc).__name__}: {sub_exc}")
+            else:
+                print(f"  Details: {error_message}")
+        else:
+            print(f"Error initializing {client_name}: {error_message}")
+        
+        return None, False
 
 try:
     if is_windows:
         # Windows-specific configuration
         print("Using Windows-specific MCP configuration...")
-        # Set up AWS Documentation MCP client for Windows
-        aws_docs_mcp_client = MCPClient(lambda: stdio_client(
-            StdioServerParameters(
-                command="uv",
-                args=["tool", "run", "--from", "awslabs.aws-documentation-mcp-server@latest", "awslabs.aws-documentation-mcp-server.exe"],
-                env={"FASTMCP_LOG_LEVEL": "ERROR"}
-            )
-        ))
         
-        # Set up AWS Diagram MCP client for Windows
-        aws_diagram_mcp_client = MCPClient(lambda: stdio_client(
-            StdioServerParameters(
-                command="uv",
-                args=["tool", "run", "--from", "awslabs.aws-diagram-mcp-server@latest", "awslabs.aws-diagram-mcp-server.exe"],
-                env={"FASTMCP_LOG_LEVEL": "ERROR"}
-            )
-        ))
+        # Try to initialize AWS Documentation MCP client
+        aws_docs_mcp_client, docs_success = initialize_mcp_client(
+            "AWS Documentation MCP client",
+            lambda: MCPClient(lambda: stdio_client(
+                StdioServerParameters(
+                    command="uv",
+                    args=["tool", "run", "--from", "awslabs.aws-documentation-mcp-server@latest", "awslabs.aws-documentation-mcp-server.exe"],
+                    env={"FASTMCP_LOG_LEVEL": "ERROR"}
+                )
+            ))
+        )
+        
+        # Try to initialize AWS Diagram MCP client
+        aws_diagram_mcp_client, diagram_success = initialize_mcp_client(
+            "AWS Diagram MCP client",
+            lambda: MCPClient(lambda: stdio_client(
+                StdioServerParameters(
+                    command="uv",
+                    args=["tool", "run", "--from", "awslabs.aws-diagram-mcp-server@latest", "awslabs.aws-diagram-mcp-server.exe"],
+                    env={"FASTMCP_LOG_LEVEL": "ERROR"}
+                )
+            ))
+        )
     else:
         # Non-Windows configuration (Linux/macOS)
         print("Using standard MCP configuration for Linux/macOS...")
-        # Set up AWS Documentation MCP client
-        aws_docs_mcp_client = MCPClient(lambda: stdio_client(
-            StdioServerParameters(command="uvx", args=["awslabs.aws-documentation-mcp-server@latest"])
-        ))
         
-        # Set up AWS Diagram MCP client
-        aws_diagram_mcp_client = MCPClient(lambda: stdio_client(
-            StdioServerParameters(command="uvx", args=["awslabs.aws-diagram-mcp-server@latest"])
-        ))
-
-    # Start both MCP clients
-    print("Starting AWS Documentation MCP client...")
-    aws_docs_mcp_client.start()
-    print("AWS Documentation MCP client started successfully.")
+        # Try to initialize AWS Documentation MCP client
+        aws_docs_mcp_client, docs_success = initialize_mcp_client(
+            "AWS Documentation MCP client",
+            lambda: MCPClient(lambda: stdio_client(
+                StdioServerParameters(command="uvx", args=["awslabs.aws-documentation-mcp-server@latest"])
+            ))
+        )
+        
+        # Try to initialize AWS Diagram MCP client
+        aws_diagram_mcp_client, diagram_success = initialize_mcp_client(
+            "AWS Diagram MCP client",
+            lambda: MCPClient(lambda: stdio_client(
+                StdioServerParameters(command="uvx", args=["awslabs.aws-diagram-mcp-server@latest"])
+            ))
+        )
     
-    print("Starting AWS Diagram MCP client...")
-    aws_diagram_mcp_client.start()
-    print("AWS Diagram MCP client started successfully.")
+    # Mark MCP as successfully initialized if at least one client started
+    mcp_initialized = (aws_docs_mcp_client is not None or aws_diagram_mcp_client is not None)
     
-    # Mark MCP as successfully initialized
-    mcp_initialized = True
+    if not mcp_initialized:
+        raise RuntimeError("Failed to initialize any MCP clients")
     
-except Exception as e:
+    print(f"\nMCP initialization complete. Active clients: " +
+          f"Documentation={'Yes' if aws_docs_mcp_client else 'No'}, " +
+          f"Diagram={'Yes' if aws_diagram_mcp_client else 'No'}")
+    
+except BaseException as e:
+    # Catch any remaining exceptions including ExceptionGroup
+    error_type = type(e).__name__
     error_message = str(e)
-    print(f"Error initializing MCP clients: {error_message}")
+    
+    print(f"\nMCP client initialization failed ({error_type}): {error_message}")
     
     if is_windows:
         print("\nWindows-specific troubleshooting tips:")
@@ -106,11 +156,25 @@ except Exception as e:
         print("2. Check your network connection")
         print("3. Try running the Streamlit app instead: streamlit run app.py")
     
-    # Continue with limited functionality instead of raising exception
-    # This allows the module to be imported even if MCP initialization fails
-    print("\nContinuing with limited functionality (MCP tools disabled)...")
+    # Ensure graceful degradation - clean up any partially initialized clients
+    if aws_docs_mcp_client is not None:
+        try:
+            aws_docs_mcp_client.stop()
+        except:
+            pass
+    if aws_diagram_mcp_client is not None:
+        try:
+            aws_diagram_mcp_client.stop()
+        except:
+            pass
+    
+    # Reset to None for clean state
     aws_docs_mcp_client = None
     aws_diagram_mcp_client = None
+    mcp_initialized = False
+    
+    # Continue with limited functionality instead of crashing
+    print("\nContinuing with limited functionality (MCP tools disabled)...")
 
 # Get tools from MCP clients (if initialized)
 docs_tools = aws_docs_mcp_client.list_tools_sync() if mcp_initialized and aws_docs_mcp_client is not None else []
