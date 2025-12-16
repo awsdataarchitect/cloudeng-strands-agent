@@ -113,8 +113,8 @@ except Exception as e:
     aws_diagram_mcp_client = None
 
 # Get tools from MCP clients (if initialized)
-docs_tools = aws_docs_mcp_client.list_tools_sync() if mcp_initialized and aws_docs_mcp_client else []
-diagram_tools = aws_diagram_mcp_client.list_tools_sync() if mcp_initialized and aws_diagram_mcp_client else []
+docs_tools = aws_docs_mcp_client.list_tools_sync() if mcp_initialized and aws_docs_mcp_client is not None else []
+diagram_tools = aws_diagram_mcp_client.list_tools_sync() if mcp_initialized and aws_diagram_mcp_client is not None else []
 
 # Create a BedrockModel with system inference profile
 bedrock_model = BedrockModel(
@@ -155,14 +155,14 @@ agent = Agent(
 
 # Register cleanup handler for MCP clients
 def cleanup():
-    if mcp_initialized:
+    if mcp_initialized and aws_docs_mcp_client is not None:
         try:
             aws_docs_mcp_client.stop()
             print("AWS Documentation MCP client stopped")
         except Exception as e:
             print(f"Error stopping AWS Documentation MCP client: {e}")
     
-    if mcp_initialized:
+    if mcp_initialized and aws_diagram_mcp_client is not None:
         try:
             aws_diagram_mcp_client.stop()
             print("AWS Diagram MCP client stopped")
