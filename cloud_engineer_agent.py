@@ -106,12 +106,15 @@ except Exception as e:
         print("2. Check your network connection")
         print("3. Try running the Streamlit app instead: streamlit run app.py")
     
-    # Re-raise the exception to maintain the original behavior
-    raise
+    # Continue with limited functionality instead of raising exception
+    # This allows the module to be imported even if MCP initialization fails
+    print("\nContinuing with limited functionality (MCP tools disabled)...")
+    aws_docs_mcp_client = None
+    aws_diagram_mcp_client = None
 
-# Get tools from MCP clients
-docs_tools = aws_docs_mcp_client.list_tools_sync()
-diagram_tools = aws_diagram_mcp_client.list_tools_sync()
+# Get tools from MCP clients (if initialized)
+docs_tools = aws_docs_mcp_client.list_tools_sync() if mcp_initialized and aws_docs_mcp_client else []
+diagram_tools = aws_diagram_mcp_client.list_tools_sync() if mcp_initialized and aws_diagram_mcp_client else []
 
 # Create a BedrockModel with system inference profile
 bedrock_model = BedrockModel(
@@ -152,17 +155,19 @@ agent = Agent(
 
 # Register cleanup handler for MCP clients
 def cleanup():
-    try:
-        aws_docs_mcp_client.stop()
-        print("AWS Documentation MCP client stopped")
-    except Exception as e:
-        print(f"Error stopping AWS Documentation MCP client: {e}")
+    if mcp_initialized and aws_docs_mcp_client:
+        try:
+            aws_docs_mcp_client.stop()
+            print("AWS Documentation MCP client stopped")
+        except Exception as e:
+            print(f"Error stopping AWS Documentation MCP client: {e}")
     
-    try:
-        aws_diagram_mcp_client.stop()
-        print("AWS Diagram MCP client stopped")
-    except Exception as e:
-        print(f"Error stopping AWS Diagram MCP client: {e}")
+    if mcp_initialized and aws_diagram_mcp_client:
+        try:
+            aws_diagram_mcp_client.stop()
+            print("AWS Diagram MCP client stopped")
+        except Exception as e:
+            print(f"Error stopping AWS Diagram MCP client: {e}")
 
 atexit.register(cleanup)
 
