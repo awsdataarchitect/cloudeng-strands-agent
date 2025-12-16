@@ -9,6 +9,18 @@ import sys
 import atexit
 from typing import Dict
 
+# Import environment validation
+from env_validator import validate_environment_variables, EnvironmentValidationError
+
+# Validate environment variables at module initialization
+print("Validating AWS environment variables...")
+try:
+    validate_environment_variables()
+except EnvironmentValidationError as e:
+    print(str(e), file=sys.stderr)
+    print("\nFATAL: Cannot start application without required AWS credentials.", file=sys.stderr)
+    sys.exit(1)
+
 # Define common cloud engineering tasks
 PREDEFINED_TASKS = {
     "ec2_status": "List all EC2 instances and their status",
@@ -27,6 +39,9 @@ PREDEFINED_TASKS = {
 # Set up MCP clients with platform-specific configurations
 is_windows = sys.platform.startswith('win')
 print(f"Detected platform: {'Windows' if is_windows else 'Non-Windows (Linux/macOS)'}")
+
+# Track whether MCP clients were successfully initialized
+mcp_initialized = False
 
 try:
     if is_windows:
@@ -70,6 +85,9 @@ try:
     print("Starting AWS Diagram MCP client...")
     aws_diagram_mcp_client.start()
     print("AWS Diagram MCP client started successfully.")
+    
+    # Mark MCP as successfully initialized
+    mcp_initialized = True
     
 except Exception as e:
     error_message = str(e)

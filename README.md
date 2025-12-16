@@ -31,6 +31,7 @@ This project demonstrates a powerful AWS Cloud Engineer Agent built with the [St
 - **MCP Tools Integration**: Incorporates AWS Documentation and AWS Diagram MCP tools
 - **AWS CLI Integration**: Direct access to AWS API through the `use_aws` tool
 - **Streamlit UI**: User-friendly interface for interacting with the agent
+- **Health Check Endpoints**: Built-in monitoring endpoints for container orchestration and health monitoring
 - **Containerized Deployment**: Docker-based deployment for portability
 - **CDK Infrastructure**: Infrastructure as Code using AWS CDK TypeScript
 
@@ -71,6 +72,112 @@ The solution consists of:
    ```
    streamlit run app.py
    ```
+
+### Health Check Endpoints
+
+The application includes built-in health check endpoints for monitoring and container orchestration:
+
+#### Available Endpoints
+
+1. **Main Health Check** (`/health`)
+   - **URL**: `http://localhost:8080/health`
+   - **Purpose**: Comprehensive health check including environment variables, dependencies, and application files
+   - **Returns**: 
+     - HTTP 200: Application is healthy or degraded (with warnings)
+     - HTTP 503: Application is unhealthy (critical issues detected)
+   - **Response Format**:
+     ```json
+     {
+       "status": "healthy|degraded|unhealthy",
+       "timestamp": "2025-12-16T15:00:00Z",
+       "application": "cloudeng-strands-agent",
+       "checks": {
+         "environment": {"status": "ok", "message": "..."},
+         "dependencies": {"status": "ok", "message": "..."},
+         "files": {"status": "ok", "message": "..."}
+       }
+     }
+     ```
+
+2. **Liveness Probe** (`/health/live`)
+   - **URL**: `http://localhost:8080/health/live`
+   - **Purpose**: Simple check to verify the server is responding
+   - **Returns**: HTTP 200 if server is alive
+   - **Use Case**: Kubernetes liveness probe, Docker health check
+
+3. **Readiness Probe** (`/health/ready`)
+   - **URL**: `http://localhost:8080/health/ready`
+   - **Purpose**: Checks if the application is ready to accept traffic
+   - **Returns**: 
+     - HTTP 200: Ready to accept requests
+     - HTTP 503: Not ready (missing dependencies or configuration)
+   - **Use Case**: Kubernetes readiness probe, load balancer health check
+
+#### Testing Health Checks
+
+Run the health check test script:
+```bash
+# Test locally (default: http://localhost:8080)
+python test_health_check.py
+
+# Test against a specific URL
+python test_health_check.py http://your-server:8080
+```
+
+Or test manually with curl:
+```bash
+# Main health check
+curl http://localhost:8080/health
+
+# Liveness probe
+curl http://localhost:8080/health/live
+
+# Readiness probe
+curl http://localhost:8080/health/ready
+```
+
+#### Docker Health Check
+
+When running in Docker, the health check server runs on port 8080:
+```bash
+# Build the image
+docker build -t cloudeng-strands-agent .
+
+# Run with health check port exposed
+docker run -p 8501:8501 -p 8080:8080 \
+  -e AWS_REGION=us-east-1 \
+  -e AWS_ACCESS_KEY_ID=your-key \
+  -e AWS_SECRET_ACCESS_KEY=your-secret \
+  cloudeng-strands-agent
+
+# Check health status
+curl http://localhost:8080/health
+```
+
+#### Integration with Monitoring Systems
+
+The health check endpoints can be integrated with:
+- **Kubernetes**: Configure liveness and readiness probes
+- **AWS ECS**: Use the health check for target group health checks
+- **Docker Compose**: Define healthcheck in docker-compose.yml
+- **Monitoring Tools**: Prometheus, Datadog, New Relic, etc.
+
+Example Kubernetes configuration:
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
 
 ### Windows Compatibility
 

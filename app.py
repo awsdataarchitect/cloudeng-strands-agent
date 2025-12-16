@@ -1,11 +1,72 @@
 import streamlit as st
-from cloud_engineer_agent import execute_predefined_task, execute_custom_task, get_predefined_tasks, PREDEFINED_TASKS, mcp_initialized
+import sys
+import os
+from PIL import Image
 import time
 import re
 import json
 import ast
-import os
-from PIL import Image
+
+# Import and validate environment variables before importing agent modules
+from env_validator import validate_environment_variables, EnvironmentValidationError
+
+# Validate environment variables at application startup
+try:
+    validate_environment_variables()
+except EnvironmentValidationError as e:
+    # Display error in Streamlit if possible, otherwise print to stderr
+    st.set_page_config(
+        page_title="AWS Cloud Engineer Agent - Configuration Error",
+        page_icon="❌",
+        layout="wide"
+    )
+    st.error("## Application Configuration Error")
+    st.error("### Required AWS Environment Variables Missing")
+    st.markdown("""
+    The application cannot start because required AWS environment variables are not configured.
+    
+    **Required Environment Variables:**
+    - `AWS_REGION` - AWS region for Bedrock and other AWS services
+    - `AWS_ACCESS_KEY_ID` - AWS access key ID for authentication
+    - `AWS_SECRET_ACCESS_KEY` - AWS secret access key for authentication
+    
+    **How to Fix:**
+    
+    **Option 1: Set environment variables in your terminal**
+    ```bash
+    # Linux/macOS
+    export AWS_REGION='us-east-1'
+    export AWS_ACCESS_KEY_ID='your-access-key-id'
+    export AWS_SECRET_ACCESS_KEY='your-secret-access-key'
+    
+    # Windows PowerShell
+    $env:AWS_REGION='us-east-1'
+    $env:AWS_ACCESS_KEY_ID='your-access-key-id'
+    $env:AWS_SECRET_ACCESS_KEY='your-secret-access-key'
+    ```
+    
+    **Option 2: Use AWS CLI to configure credentials**
+    ```bash
+    aws configure
+    # Then set AWS_REGION environment variable
+    export AWS_REGION='us-east-1'  # or $env:AWS_REGION='us-east-1' on Windows
+    ```
+    
+    **Option 3: Create a .env file** (if using a .env loader)
+    ```
+    AWS_REGION=us-east-1
+    AWS_ACCESS_KEY_ID=your-access-key-id
+    AWS_SECRET_ACCESS_KEY=your-secret-access-key
+    ```
+    """)
+    
+    # Also print to stderr for non-Streamlit contexts
+    print(str(e), file=sys.stderr)
+    print("\nFATAL: Cannot start application without required AWS credentials.", file=sys.stderr)
+    st.stop()
+
+# Import agent modules after validation passes
+from cloud_engineer_agent import execute_predefined_task, execute_custom_task, get_predefined_tasks, PREDEFINED_TASKS, mcp_initialized
 
 st.set_page_config(
     page_title="AWS Cloud Engineer Agent",
