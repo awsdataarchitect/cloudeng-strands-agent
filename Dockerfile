@@ -25,13 +25,17 @@ RUN pip install --no-cache-dir  diagrams
 # Copy application code
 COPY . .
 
-# Expose port for Streamlit
-EXPOSE 8501
+# Make startup script executable
+RUN chmod +x start.sh
+
+# Expose ports for Streamlit and health check
+EXPOSE 8501 8080
 
 # Set environment variables
 ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_HEADLESS=true
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+ENV HEALTH_CHECK_PORT=8080
 
-# Command to run the application
-CMD ["streamlit", "run", "app.py"]
+# Command to run the application with health check server
+CMD ["./start.sh"]
